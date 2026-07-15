@@ -1,0 +1,11 @@
+# Display settings
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+FPS = 60
+
+# Colors (R, G, B)
+BLACK = (10, 10, 20)
+WHITE = (255, 255, 255)
+GREEN = (50, 255, 50)
+RED = (255, 50, 50)
+YELLOW = (255, 255, 50)
