@@ -1,6 +1,6 @@
 import pygame
 import sys
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BLACK, GREEN, RED, YELLOW
+from constants import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BLACK, GREEN, RED, YELLOW, BLUE
 from sound import SoundEngine
 
 
@@ -61,6 +61,7 @@ def main():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Space Warriors")
     clock = pygame.time.Clock()
+    font = pygame.font.Font(None, 20)
 
     # Initialize our custom numpy audio from sound.py
     audio = SoundEngine()
@@ -74,6 +75,9 @@ def main():
     enemy_drop = 30
     enemy_direction = 1
 
+    # Score
+    score = 0
+
     # Spawn initial grid of enemies
     def spawn_enemies():
         for row in range(4):
@@ -85,8 +89,13 @@ def main():
     spawn_enemies()
     running = True
 
+    score_pos = (10, 10)
+
     while running:
         screen.fill(BLACK)
+        score_text = font.render(f"SCORE: {score}", True, BLUE)
+        sc_rect = score_text.get_rect(topleft=score_pos)
+        screen.blit(score_text, sc_rect)
 
         # 1. Handle Events
         for event in pygame.event.get():
@@ -100,9 +109,9 @@ def main():
                     audio.play_shoot()
 
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
+        if keys[pygame.K_LEFT] or keys[pygame.K_l] or keys[pygame.K_d]:
             player.move(-1)
-        if keys[pygame.K_RIGHT]:
+        if keys[pygame.K_RIGHT] or keys[pygame.K_h] or keys[pygame.K_a]:
             player.move(1)
 
         # 2. Update Bullets
@@ -125,7 +134,6 @@ def main():
                 enemy.rect.y += enemy_drop
                 # Game over condition
                 if enemy.rect.bottom >= player.rect.top:
-                    print("GAME OVER")
                     running = False
 
         # 4. Collisions
@@ -136,6 +144,7 @@ def main():
                     if bullet in bullets:
                         bullets.remove(bullet)
                     enemies.remove(enemy)
+                    score += 1
                     break
 
         # Respawn if all defeated
