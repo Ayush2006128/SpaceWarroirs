@@ -1,6 +1,16 @@
 import pygame
 import sys
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BLACK, GREEN, RED, YELLOW, BLUE
+from constants import (
+    SCREEN_WIDTH,
+    SCREEN_HEIGHT,
+    FPS,
+    BLACK,
+    GREEN,
+    RED,
+    WHITE,
+    YELLOW,
+    BLUE,
+)
 from sound import SoundEngine
 
 
@@ -61,7 +71,7 @@ def main():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Space Warriors")
     clock = pygame.time.Clock()
-    font = pygame.font.Font(None, 20)
+    font = pygame.font.Font(None, 50)
 
     # Initialize our custom numpy audio from sound.py
     audio = SoundEngine()
@@ -93,7 +103,7 @@ def main():
 
     while running:
         screen.fill(BLACK)
-        score_text = font.render(f"SCORE: {score}", True, BLUE)
+        score_text = font.render(f"SCORE: {score}", True, WHITE)
         sc_rect = score_text.get_rect(topleft=score_pos)
         screen.blit(score_text, sc_rect)
 
