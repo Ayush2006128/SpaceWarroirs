@@ -1,6 +1,6 @@
 import pygame
 import sys
-from constants import (
+from game.constants import (
     SCREEN_WIDTH,
     SCREEN_HEIGHT,
     FPS,
@@ -11,8 +11,8 @@ from constants import (
     YELLOW,
     BLUE,
 )
-from sound import SoundEngine
-from game_models import Player, Enemy, Bullet
+from game.fx import SoundEngine
+from game.game_models import Player, Enemy, Bullet
 
 
 # ==========================================
