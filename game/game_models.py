@@ -1,5 +1,5 @@
 import pygame
-from constants import SCREEN_HEIGHT, SCREEN_WIDTH, GREEN, BLACK, RED, YELLOW
+from .constants import SCREEN_HEIGHT, SCREEN_WIDTH, GREEN, BLACK, RED, YELLOW
 
 
 class Bullet:

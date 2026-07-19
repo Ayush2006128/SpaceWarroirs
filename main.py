@@ -5,32 +5,11 @@ from game.constants import (
     SCREEN_HEIGHT,
     FPS,
     BLACK,
-    GREEN,
-    RED,
     WHITE,
-    YELLOW,
-    BLUE,
 )
 from game.fx import SoundEngine
 from game.game_models import Player, Enemy, Bullet
-
-
-# ==========================================
-# UI HELPERS
-# ==========================================
-def draw_centered_text(surface, text, font, color, center_x, y):
-    text_surface = font.render(text, True, color)
-    text_rect = text_surface.get_rect(center=(center_x, y))
-    surface.blit(text_surface, text_rect)
-
-
-def draw_button(surface, rect, label, font, mouse_pos):
-    color = BLUE if rect.collidepoint(mouse_pos) else WHITE
-    pygame.draw.rect(surface, color, rect, border_radius=8)
-    pygame.draw.rect(surface, BLACK, rect, 2, border_radius=8)
-    text_surface = font.render(label, True, BLACK)
-    text_rect = text_surface.get_rect(center=rect.center)
-    surface.blit(text_surface, text_rect)
+from game.ui import draw_game_over_screen, draw_init_screen, draw_win_screen
 
 
 # ==========================================
@@ -79,6 +58,7 @@ def main():
         enemy_direction = 1
         score = 0
         spawn_enemies()
+        audio.play_start()
 
     # Shared menu buttons
     start_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 300, 200, 55)
@@ -156,8 +136,9 @@ def main():
                 for enemy in enemies:
                     enemy.rect.x += enemy_speed * enemy_direction
                     enemy.rect.y += enemy_drop
-                    if enemy.rect.bottom >= player.rect.top:
+                    if game_state == STATE_PLAYING and enemy.rect.bottom >= player.rect.top:
                         game_state = STATE_GAME_OVER
+                        audio.play_game_over()
 
             # 4. Collisions
             for bullet in bullets[:]:
@@ -170,8 +151,9 @@ def main():
                         score += 1
                         break
 
-            if not enemies:
+            if game_state == STATE_PLAYING and not enemies:
                 game_state = STATE_WIN
+                audio.play_win()
 
             # 5. Drawing
             player.draw(screen)
@@ -181,49 +163,31 @@ def main():
                 enemy.draw(screen)
 
         elif game_state == STATE_INIT:
-            draw_centered_text(
-                screen, "SPACE WARRIORS", title_font, WHITE, SCREEN_WIDTH // 2, 170
+            draw_init_screen(
+                screen, title_font, button_font, mouse_pos, start_rect, quit_rect
             )
-            draw_centered_text(
-                screen,
-                "Press Enter or click Start",
-                button_font,
-                YELLOW,
-                SCREEN_WIDTH // 2,
-                240,
-            )
-            draw_button(screen, start_rect, "Start Game", button_font, mouse_pos)
-            draw_button(screen, quit_rect, "Quit", button_font, mouse_pos)
 
         elif game_state == STATE_GAME_OVER:
-            draw_centered_text(
-                screen, "GAME OVER", title_font, RED, SCREEN_WIDTH // 2, 170
-            )
-            draw_centered_text(
+            draw_game_over_screen(
                 screen,
-                f"Final Score: {score}",
+                title_font,
                 button_font,
-                WHITE,
-                SCREEN_WIDTH // 2,
-                240,
+                mouse_pos,
+                score,
+                restart_rect,
+                quit_rect,
             )
-            draw_button(screen, restart_rect, "Restart", button_font, mouse_pos)
-            draw_button(screen, quit_rect, "Quit", button_font, mouse_pos)
 
         elif game_state == STATE_WIN:
-            draw_centered_text(
-                screen, "YOU WIN!", title_font, GREEN, SCREEN_WIDTH // 2, 170
-            )
-            draw_centered_text(
+            draw_win_screen(
                 screen,
-                f"Final Score: {score}",
+                title_font,
                 button_font,
-                WHITE,
-                SCREEN_WIDTH // 2,
-                240,
+                mouse_pos,
+                score,
+                restart_rect,
+                quit_rect,
             )
-            draw_button(screen, restart_rect, "Play Again", button_font, mouse_pos)
-            draw_button(screen, quit_rect, "Quit", button_font, mouse_pos)
 
         pygame.display.flip()
         clock.tick(FPS)
