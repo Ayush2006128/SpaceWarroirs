@@ -11,6 +11,7 @@ from game.constants import (
     WHITE,
 )
 from game.sound.fx import SoundEffects
+from game.sound.music import MusicManager
 from game.game_models import Player, Enemy, Bullet
 from game.ui import draw_game_over_screen, draw_init_screen, draw_win_screen
 
@@ -35,9 +36,6 @@ def main():
     title_font = pygame.font.Font(display_font_path, 70)
     button_font = pygame.font.Font(interface_font_path, 42)
 
-    # Initialize our custom numpy audio from sound.py
-    audio = SoundEffects()
-
     # States
     STATE_INIT = "init"
     STATE_WARP = "warp"
@@ -45,6 +43,11 @@ def main():
     STATE_GAME_OVER = "game_over"
     STATE_WIN = "win"
     game_state = STATE_INIT
+
+    # Initialize game SFX and background music systems.
+    audio = SoundEffects()
+    music = MusicManager()
+    music.play_for_state(game_state)
 
     player = None
     bullets = []
@@ -130,6 +133,11 @@ def main():
         spawn_enemies()
         audio.play_start()
 
+    def set_game_state(new_state):
+        nonlocal game_state
+        game_state = new_state
+        music.play_for_state(game_state)
+
     # Shared menu buttons
     start_rect = pygame.Rect(SCREEN_WIDTH // 2 - 130, 295, 260, 65)
     restart_rect = pygame.Rect(SCREEN_WIDTH // 2 - 120, 300, 240, 55)
@@ -146,29 +154,32 @@ def main():
 
         # 1. Handle Events
         for event in pygame.event.get():
+            if music.handle_event(event):
+                continue
+
             if event.type == pygame.QUIT:
                 running = False
 
             if game_state == STATE_INIT:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
                     reset_game()
-                    game_state = STATE_PLAYING
+                    set_game_state(STATE_PLAYING)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if start_rect.collidepoint(event.pos):
                         reset_game()
                         warp_elapsed = 0.0
-                        game_state = STATE_WARP
+                        set_game_state(STATE_WARP)
                     elif quit_rect.collidepoint(event.pos):
                         running = False
 
             elif game_state in (STATE_GAME_OVER, STATE_WIN):
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
                     reset_game()
-                    game_state = STATE_PLAYING
+                    set_game_state(STATE_PLAYING)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if restart_rect.collidepoint(event.pos):
                         reset_game()
-                        game_state = STATE_PLAYING
+                        set_game_state(STATE_PLAYING)
                     elif quit_rect.collidepoint(event.pos):
                         running = False
 
@@ -200,7 +211,7 @@ def main():
                 warp_elapsed += delta_time
                 if warp_elapsed >= WARP_DURATION:
                     asteroids.clear()
-                    game_state = STATE_PLAYING
+                    set_game_state(STATE_PLAYING)
 
         elif game_state == STATE_GAME_OVER:
             screen_asteroid_spawn_time += delta_time
@@ -246,7 +257,7 @@ def main():
                     enemy.rect.x += enemy_speed * enemy_direction
                     enemy.rect.y += enemy_drop
                     if game_state == STATE_PLAYING and enemy.rect.bottom >= player.rect.top:
-                        game_state = STATE_GAME_OVER
+                        set_game_state(STATE_GAME_OVER)
                         game_over_asteroids = [make_game_over_asteroid() for _ in range(14)]
                         screen_asteroid_spawn_time = 0.0
                         audio.play_game_over()
@@ -263,7 +274,7 @@ def main():
                         break
 
             if game_state == STATE_PLAYING and not enemies:
-                game_state = STATE_WIN
+                set_game_state(STATE_WIN)
                 win_asteroids = [make_win_asteroid() for _ in range(18)]
                 screen_asteroid_spawn_time = 0.0
                 audio.play_win()
@@ -318,6 +329,7 @@ def main():
 
         pygame.display.flip()
 
+    music.stop()
     pygame.quit()
     sys.exit()
 
