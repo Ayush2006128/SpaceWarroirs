@@ -2,7 +2,7 @@ import pygame
 import numpy as np
 
 
-class SoundEngine:
+class SoundEffects:
     def __init__(self, sample_rate=44100):
         self.sample_rate = sample_rate
         # Initialize mixer for mono (1 channel), 16-bit signed audio

@@ -10,7 +10,7 @@ from game.constants import (
     BLACK,
     WHITE,
 )
-from game.fx import SoundEngine
+from game.sound.fx import SoundEffects
 from game.game_models import Player, Enemy, Bullet
 from game.ui import draw_game_over_screen, draw_init_screen, draw_win_screen
 
@@ -36,7 +36,7 @@ def main():
     button_font = pygame.font.Font(interface_font_path, 42)
 
     # Initialize our custom numpy audio from sound.py
-    audio = SoundEngine()
+    audio = SoundEffects()
 
     # States
     STATE_INIT = "init"
