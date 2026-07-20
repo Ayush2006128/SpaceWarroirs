@@ -1,5 +1,7 @@
 import pygame
+import random
 import sys
+from pathlib import Path
 from game.constants import (
     SCREEN_WIDTH,
     SCREEN_HEIGHT,
@@ -20,15 +22,24 @@ def main():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Space Warriors")
     clock = pygame.time.Clock()
-    font = pygame.font.Font(None, 50)
-    title_font = pygame.font.Font(None, 70)
-    button_font = pygame.font.Font(None, 42)
+    font_dir = Path(__file__).parent / "assets" / "fonts"
+    display_font_path = (
+        font_dir / "Bitcount_Grid_Double" / "static" / "BitcountGridDouble_Roman-Bold.ttf"
+    )
+    interface_font_path = font_dir / "Space_Grotesk" / "static" / "SpaceGrotesk-Medium.ttf"
+
+    # Bitcount is reserved for the prominent game display; Space Grotesk keeps
+    # supporting text and controls easy to read.
+    score_font = pygame.font.Font(display_font_path, 50)
+    title_font = pygame.font.Font(display_font_path, 70)
+    button_font = pygame.font.Font(interface_font_path, 42)
 
     # Initialize our custom numpy audio from sound.py
     audio = SoundEngine()
 
     # States
     STATE_INIT = "init"
+    STATE_WARP = "warp"
     STATE_PLAYING = "playing"
     STATE_GAME_OVER = "game_over"
     STATE_WIN = "win"
@@ -41,6 +52,20 @@ def main():
     enemy_drop = 30
     enemy_direction = 1
     score = 0
+    asteroids = []
+    asteroid_spawn_time = 0.0
+    warp_elapsed = 0.0
+    WARP_DURATION = 0.75
+
+    def make_asteroid():
+        size = random.randint(4, 10)
+        if random.choice((True, False)):
+            x, y = random.uniform(-size, SCREEN_WIDTH), random.uniform(-80, -size)
+        else:
+            x, y = random.uniform(-80, -size), random.uniform(-size, SCREEN_HEIGHT)
+        return {"x": x, "y": y, "size": size, "speed": random.uniform(45, 100)}
+
+    asteroids = [make_asteroid() for _ in range(18)]
 
     def spawn_enemies():
         enemies.clear()
@@ -70,6 +95,7 @@ def main():
     score_pos = (10, 10)
 
     while running:
+        delta_time = clock.tick(FPS) / 1000
         screen.fill(BLACK)
         mouse_pos = pygame.mouse.get_pos()
 
@@ -85,7 +111,8 @@ def main():
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if start_rect.collidepoint(event.pos):
                         reset_game()
-                        game_state = STATE_PLAYING
+                        warp_elapsed = 0.0
+                        game_state = STATE_WARP
                     elif quit_rect.collidepoint(event.pos):
                         running = False
 
@@ -107,8 +134,31 @@ def main():
                     )
                     audio.play_shoot()
 
+        if game_state in (STATE_INIT, STATE_WARP):
+            if game_state == STATE_INIT:
+                asteroid_spawn_time += delta_time
+                if asteroid_spawn_time >= 0.35:
+                    asteroids.append(make_asteroid())
+                    asteroid_spawn_time = 0.0
+
+            speed_multiplier = 11 if game_state == STATE_WARP else 1
+            for asteroid in asteroids[:]:
+                asteroid["x"] += asteroid["speed"] * speed_multiplier * delta_time
+                asteroid["y"] += asteroid["speed"] * 0.72 * speed_multiplier * delta_time
+                if (
+                    asteroid["x"] - asteroid["size"] > SCREEN_WIDTH
+                    or asteroid["y"] - asteroid["size"] > SCREEN_HEIGHT
+                ):
+                    asteroids.remove(asteroid)
+
+            if game_state == STATE_WARP:
+                warp_elapsed += delta_time
+                if warp_elapsed >= WARP_DURATION:
+                    asteroids.clear()
+                    game_state = STATE_PLAYING
+
         if game_state == STATE_PLAYING:
-            score_text = font.render(f"SCORE: {score}", True, WHITE)
+            score_text = score_font.render(f"SCORE: {score}", True, WHITE)
             sc_rect = score_text.get_rect(topleft=score_pos)
             screen.blit(score_text, sc_rect)
 
@@ -164,7 +214,19 @@ def main():
 
         elif game_state == STATE_INIT:
             draw_init_screen(
-                screen, title_font, button_font, mouse_pos, start_rect, quit_rect
+                screen, title_font, button_font, mouse_pos, start_rect, quit_rect, asteroids
+            )
+
+        elif game_state == STATE_WARP:
+            draw_init_screen(
+                screen,
+                title_font,
+                button_font,
+                mouse_pos,
+                start_rect,
+                quit_rect,
+                asteroids,
+                warp_elapsed / WARP_DURATION,
             )
 
         elif game_state == STATE_GAME_OVER:
@@ -190,7 +252,6 @@ def main():
             )
 
         pygame.display.flip()
-        clock.tick(FPS)
 
     pygame.quit()
     sys.exit()
