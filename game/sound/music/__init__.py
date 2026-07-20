@@ -27,6 +27,7 @@ class MusicManager:
 		self._current_playing_track_index: int | None = None
 		self._track_end_event = pygame.USEREVENT + 11
 
+		self._volume = volume
 		pygame.mixer.music.set_endevent(self._track_end_event)
 		pygame.mixer.music.set_volume(volume)
 		self._muted = False
@@ -63,8 +64,11 @@ class MusicManager:
 	def set_muted(self, muted: bool) -> None:
 		self._muted = muted
 		if muted:
+			# Zero volume first for an instant cutoff, then stop.
+			pygame.mixer.music.set_volume(0)
 			pygame.mixer.music.stop()
 		else:
+			pygame.mixer.music.set_volume(self._volume)
 			state = self._current_state
 			self._current_state = None
 			if state:

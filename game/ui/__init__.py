@@ -84,7 +84,7 @@ def draw_init_screen(
 
 
 def draw_game_over_screen(
-    surface, title_font, button_font, mouse_pos, score, restart_rect, quit_rect, asteroids
+    surface, title_font, button_font, mouse_pos, score, restart_rect, options_rect, quit_rect, asteroids
 ):
     center_x = surface.get_width() // 2
     draw_screen_asteroids(surface, asteroids)
@@ -93,11 +93,12 @@ def draw_game_over_screen(
         surface, f"Final Score: {score}", button_font, WHITE, center_x, 240
     )
     draw_button(surface, restart_rect, "Restart", button_font, mouse_pos)
+    draw_button(surface, options_rect, "Options", button_font, mouse_pos)
     draw_button(surface, quit_rect, "Quit", button_font, mouse_pos, variant="danger")
 
 
 def draw_win_screen(
-    surface, title_font, button_font, mouse_pos, score, restart_rect, quit_rect, asteroids
+    surface, title_font, button_font, mouse_pos, score, restart_rect, options_rect, quit_rect, asteroids
 ):
     center_x = surface.get_width() // 2
     draw_screen_asteroids(surface, asteroids)
@@ -106,6 +107,7 @@ def draw_win_screen(
         surface, f"Final Score: {score}", button_font, WHITE, center_x, 240
     )
     draw_button(surface, restart_rect, "Play Again", button_font, mouse_pos)
+    draw_button(surface, options_rect, "Options", button_font, mouse_pos)
     draw_button(surface, quit_rect, "Quit", button_font, mouse_pos, variant="danger")
 
 

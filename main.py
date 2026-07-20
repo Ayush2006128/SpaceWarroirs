@@ -74,10 +74,11 @@ def main():
     warp_elapsed = 0.0
     WARP_DURATION = 0.75
     auto_fire_timer = 0.0
-    AUTO_FIRE_INTERVAL = 1.0
+    AUTO_FIRE_INTERVAL = 0.35
 
     # Options state
     options = {"music": True, "sfx": True, "mouse_ctrl": False}
+    pre_options_state = STATE_INIT  # tracks which screen opened options
 
     def make_asteroid():
         size = random.randint(4, 10)
@@ -152,13 +153,16 @@ def main():
     def set_game_state(new_state):
         nonlocal game_state
         game_state = new_state
-        music.play_for_state(game_state)
+        # Don't change music when entering/leaving options; keep whatever is playing.
+        if new_state != STATE_OPTIONS:
+            music.play_for_state(game_state)
 
     # Shared menu buttons
     start_rect = pygame.Rect(SCREEN_WIDTH // 2 - 130, 270, 260, 65)
     options_rect = pygame.Rect(SCREEN_WIDTH // 2 - 130, 350, 260, 65)
     restart_rect = pygame.Rect(SCREEN_WIDTH // 2 - 120, 300, 240, 55)
-    quit_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 430, 200, 55)
+    endscreen_options_rect = pygame.Rect(SCREEN_WIDTH // 2 - 120, 370, 240, 55)
+    quit_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 450, 200, 55)
 
     # Options screen layout
     toggle_w, toggle_h = 350, 55
@@ -196,6 +200,7 @@ def main():
                         warp_elapsed = 0.0
                         set_game_state(STATE_WARP)
                     elif options_rect.collidepoint(event.pos):
+                        pre_options_state = STATE_INIT
                         set_game_state(STATE_OPTIONS)
                     elif quit_rect.collidepoint(event.pos):
                         running = False
@@ -208,6 +213,9 @@ def main():
                     if restart_rect.collidepoint(event.pos):
                         reset_game()
                         set_game_state(STATE_PLAYING)
+                    elif endscreen_options_rect.collidepoint(event.pos):
+                        pre_options_state = game_state
+                        set_game_state(STATE_OPTIONS)
                     elif quit_rect.collidepoint(event.pos):
                         running = False
 
@@ -221,10 +229,10 @@ def main():
 
             elif game_state == STATE_OPTIONS:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    set_game_state(STATE_INIT)
+                    set_game_state(pre_options_state)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if back_rect.collidepoint(event.pos):
-                        set_game_state(STATE_INIT)
+                        set_game_state(pre_options_state)
                     for i, key in enumerate(("music", "sfx", "mouse_ctrl")):
                         if toggle_rects[i].collidepoint(event.pos):
                             options[key] = not options[key]
@@ -384,6 +392,7 @@ def main():
                 mouse_pos,
                 score,
                 restart_rect,
+                endscreen_options_rect,
                 quit_rect,
                 game_over_asteroids,
             )
@@ -396,6 +405,7 @@ def main():
                 mouse_pos,
                 score,
                 restart_rect,
+                endscreen_options_rect,
                 quit_rect,
                 win_asteroids,
             )
