@@ -1,6 +1,7 @@
 import pygame
 
-from game.constants import BLACK, BLUE, GREEN, RED, WHITE, YELLOW
+from game.constants import GREEN, RED, WHITE, YELLOW
+from game.ui.buttons import draw_button
 
 
 def draw_centered_text(surface, text, font, color, center_x, y):
@@ -9,35 +10,30 @@ def draw_centered_text(surface, text, font, color, center_x, y):
     surface.blit(text_surface, text_rect)
 
 
-def draw_button(surface, rect, label, font, mouse_pos):
-    hovered = rect.collidepoint(mouse_pos)
-    frame_color = YELLOW if hovered else BLUE
-    fill_color = (30, 34, 75) if hovered else (18, 22, 48)
-
-    # Offset shadow and squared, nested borders evoke the arcade cabinet UI.
-    pygame.draw.rect(surface, (4, 6, 18), rect.move(5, 5))
-    pygame.draw.rect(surface, frame_color, rect, 3)
-    inner_rect = rect.inflate(-10, -10)
-    pygame.draw.rect(surface, fill_color, inner_rect)
-    pygame.draw.rect(surface, frame_color, inner_rect, 1)
-
-    # Bright corner brackets give the frame a Space Invaders-style silhouette.
-    corner_size = 10
-    for x, y, x_dir, y_dir in (
-        (rect.left + 4, rect.top + 4, 1, 1),
-        (rect.right - 4, rect.top + 4, -1, 1),
-        (rect.left + 4, rect.bottom - 4, 1, -1),
-        (rect.right - 4, rect.bottom - 4, -1, -1),
-    ):
-        pygame.draw.line(surface, frame_color, (x, y), (x + x_dir * corner_size, y), 3)
-        pygame.draw.line(surface, frame_color, (x, y), (x, y + y_dir * corner_size), 3)
-
-    text_color = WHITE if not hovered else YELLOW
-    text_surface = font.render(label, True, text_color)
-    text_shadow = font.render(label, True, BLACK)
-    text_rect = text_surface.get_rect(center=rect.center)
-    surface.blit(text_shadow, text_rect.move(2, 2))
-    surface.blit(text_surface, text_rect)
+def draw_screen_asteroids(surface, asteroids):
+    for asteroid in asteroids:
+        x, y, size = asteroid["x"], asteroid["y"], asteroid["size"]
+        color = asteroid["color"]
+        if asteroid["shape"] == "teardrop":
+            points = [
+                (x, y - size),
+                (x + size * 0.7, y + size * 0.3),
+                (x, y + size),
+                (x - size * 0.7, y + size * 0.3),
+            ]
+        elif asteroid["shape"] == "diamond":
+            points = [(x, y - size), (x + size, y), (x, y + size), (x - size, y)]
+        elif asteroid["shape"] == "triangle":
+            points = [(x, y - size), (x + size, y + size), (x - size, y + size)]
+        else:
+            points = [
+                (x - size, y),
+                (x - size * 0.3, y - size),
+                (x + size, y - size * 0.3),
+                (x + size * 0.5, y + size),
+                (x - size * 0.6, y + size * 0.5),
+            ]
+        pygame.draw.polygon(surface, color, points)
 
 
 def draw_init_screen(
@@ -82,28 +78,30 @@ def draw_init_screen(
         surface, "Press Enter or click Start", button_font, YELLOW, center_x, 240
     )
     draw_button(surface, start_rect, "Start Game", button_font, mouse_pos)
-    draw_button(surface, quit_rect, "Quit", button_font, mouse_pos)
+    draw_button(surface, quit_rect, "Quit", button_font, mouse_pos, variant="danger")
 
 
 def draw_game_over_screen(
-    surface, title_font, button_font, mouse_pos, score, restart_rect, quit_rect
+    surface, title_font, button_font, mouse_pos, score, restart_rect, quit_rect, asteroids
 ):
     center_x = surface.get_width() // 2
+    draw_screen_asteroids(surface, asteroids)
     draw_centered_text(surface, "GAME OVER", title_font, RED, center_x, 170)
     draw_centered_text(
         surface, f"Final Score: {score}", button_font, WHITE, center_x, 240
     )
     draw_button(surface, restart_rect, "Restart", button_font, mouse_pos)
-    draw_button(surface, quit_rect, "Quit", button_font, mouse_pos)
+    draw_button(surface, quit_rect, "Quit", button_font, mouse_pos, variant="danger")
 
 
 def draw_win_screen(
-    surface, title_font, button_font, mouse_pos, score, restart_rect, quit_rect
+    surface, title_font, button_font, mouse_pos, score, restart_rect, quit_rect, asteroids
 ):
     center_x = surface.get_width() // 2
+    draw_screen_asteroids(surface, asteroids)
     draw_centered_text(surface, "YOU WIN!", title_font, GREEN, center_x, 170)
     draw_centered_text(
         surface, f"Final Score: {score}", button_font, WHITE, center_x, 240
     )
     draw_button(surface, restart_rect, "Play Again", button_font, mouse_pos)
-    draw_button(surface, quit_rect, "Quit", button_font, mouse_pos)
+    draw_button(surface, quit_rect, "Quit", button_font, mouse_pos, variant="danger")

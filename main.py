@@ -1,3 +1,4 @@
+import math
 import pygame
 import random
 import sys
@@ -53,7 +54,10 @@ def main():
     enemy_direction = 1
     score = 0
     asteroids = []
+    game_over_asteroids = []
+    win_asteroids = []
     asteroid_spawn_time = 0.0
+    screen_asteroid_spawn_time = 0.0
     warp_elapsed = 0.0
     WARP_DURATION = 0.75
 
@@ -64,6 +68,45 @@ def main():
         else:
             x, y = random.uniform(-80, -size), random.uniform(-size, SCREEN_HEIGHT)
         return {"x": x, "y": y, "size": size, "speed": random.uniform(45, 100)}
+
+    def make_game_over_asteroid():
+        size = random.randint(7, 15)
+        return {
+            "x": random.uniform(size, SCREEN_WIDTH - size),
+            "y": -size,
+            "size": size,
+            "vx": random.uniform(-18, 18),
+            "vy": random.uniform(80, 180),
+            "color": random.choice(((75, 160, 255), (100, 190, 255), (65, 125, 230))),
+            "shape": "teardrop",
+        }
+
+    def make_win_asteroid():
+        size = random.randint(6, 15)
+        angle = random.uniform(0, math.tau)
+        speed = random.uniform(65, 170)
+        return {
+            "x": random.uniform(0, SCREEN_WIDTH),
+            "y": random.uniform(0, SCREEN_HEIGHT),
+            "size": size,
+            "vx": math.cos(angle) * speed,
+            "vy": math.sin(angle) * speed,
+            "color": tuple(random.randint(90, 255) for _ in range(3)),
+            "shape": random.choice(("rock", "diamond", "triangle")),
+        }
+
+    def update_screen_asteroids(asteroid_field, delta_time):
+        for asteroid in asteroid_field[:]:
+            asteroid["x"] += asteroid["vx"] * delta_time
+            asteroid["y"] += asteroid["vy"] * delta_time
+            size = asteroid["size"]
+            if (
+                asteroid["x"] < -size
+                or asteroid["x"] > SCREEN_WIDTH + size
+                or asteroid["y"] < -size
+                or asteroid["y"] > SCREEN_HEIGHT + size
+            ):
+                asteroid_field.remove(asteroid)
 
     asteroids = [make_asteroid() for _ in range(18)]
 
@@ -82,11 +125,13 @@ def main():
         enemy_speed = 2
         enemy_direction = 1
         score = 0
+        game_over_asteroids.clear()
+        win_asteroids.clear()
         spawn_enemies()
         audio.play_start()
 
     # Shared menu buttons
-    start_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 300, 200, 55)
+    start_rect = pygame.Rect(SCREEN_WIDTH // 2 - 130, 295, 260, 65)
     restart_rect = pygame.Rect(SCREEN_WIDTH // 2 - 120, 300, 240, 55)
     quit_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 380, 200, 55)
 
@@ -157,6 +202,20 @@ def main():
                     asteroids.clear()
                     game_state = STATE_PLAYING
 
+        elif game_state == STATE_GAME_OVER:
+            screen_asteroid_spawn_time += delta_time
+            if screen_asteroid_spawn_time >= 0.3 and len(game_over_asteroids) < 40:
+                game_over_asteroids.append(make_game_over_asteroid())
+                screen_asteroid_spawn_time = 0.0
+            update_screen_asteroids(game_over_asteroids, delta_time)
+
+        elif game_state == STATE_WIN:
+            screen_asteroid_spawn_time += delta_time
+            if screen_asteroid_spawn_time >= 0.22 and len(win_asteroids) < 50:
+                win_asteroids.append(make_win_asteroid())
+                screen_asteroid_spawn_time = 0.0
+            update_screen_asteroids(win_asteroids, delta_time)
+
         if game_state == STATE_PLAYING:
             score_text = score_font.render(f"SCORE: {score}", True, WHITE)
             sc_rect = score_text.get_rect(topleft=score_pos)
@@ -188,6 +247,8 @@ def main():
                     enemy.rect.y += enemy_drop
                     if game_state == STATE_PLAYING and enemy.rect.bottom >= player.rect.top:
                         game_state = STATE_GAME_OVER
+                        game_over_asteroids = [make_game_over_asteroid() for _ in range(14)]
+                        screen_asteroid_spawn_time = 0.0
                         audio.play_game_over()
 
             # 4. Collisions
@@ -203,6 +264,8 @@ def main():
 
             if game_state == STATE_PLAYING and not enemies:
                 game_state = STATE_WIN
+                win_asteroids = [make_win_asteroid() for _ in range(18)]
+                screen_asteroid_spawn_time = 0.0
                 audio.play_win()
 
             # 5. Drawing
@@ -238,6 +301,7 @@ def main():
                 score,
                 restart_rect,
                 quit_rect,
+                game_over_asteroids,
             )
 
         elif game_state == STATE_WIN:
@@ -249,6 +313,7 @@ def main():
                 score,
                 restart_rect,
                 quit_rect,
+                win_asteroids,
             )
 
         pygame.display.flip()
