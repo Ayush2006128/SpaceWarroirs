@@ -12,7 +12,7 @@ from game.constants import (
 )
 from game.sound.fx import SoundEffects
 from game.sound.music import MusicManager
-from game.game_models import Player, Enemy, Bullet
+from game.game_models import Player, Enemy, Bullet, EnemyBullet
 from game.ui import draw_game_over_screen, draw_init_screen, draw_win_screen, draw_options_screen
 
 # Base directory: bundled (PyInstaller) or the project root (where main.py lives).
@@ -44,6 +44,7 @@ def main():
     score_font = pygame.font.Font(display_font_path, 50)
     title_font = pygame.font.Font(display_font_path, 70)
     button_font = pygame.font.Font(interface_font_path, 42)
+    hud_font = pygame.font.Font(interface_font_path, 28)
 
     # States
     STATE_INIT = "init"
@@ -62,10 +63,14 @@ def main():
     player = None
     bullets = []
     enemies = []
+    small_enemies = []
+    enemy_bullets = []
     enemy_speed = 2
     enemy_drop = 30
     enemy_direction = 1
     score = 0
+    level = 1
+    small_enemies_defeated = 0
     asteroids = []
     game_over_asteroids = []
     win_asteroids = []
@@ -75,6 +80,7 @@ def main():
     WARP_DURATION = 0.75
     auto_fire_timer = 0.0
     AUTO_FIRE_INTERVAL = 0.35
+    small_enemy_spawn_timer = 0.0
 
     # Options state
     options = {"music": True, "sfx": True, "mouse_ctrl": False}
@@ -129,18 +135,69 @@ def main():
 
     asteroids = [make_asteroid() for _ in range(18)]
 
+    def has_special_ship(lvl):
+        """Player gets a special ship on level 3 and every multiple of 10."""
+        return lvl == 3 or (lvl >= 10 and lvl % 10 == 0)
+
     def spawn_enemies():
         enemies.clear()
         for row in range(4):
             for col in range(10):
                 x = 50 + col * 60
                 y = 50 + row * 50
-                enemies.append(Enemy(x, y))
+                if level >= 3 and row == 0:
+                    # Front row becomes boss enemies on L3+
+                    enemies.append(Enemy(x, y, enemy_type="boss", health=3))
+                else:
+                    enemies.append(Enemy(x, y))
+
+    def spawn_small_enemy_wave():
+        """Spawn 4 small enemies from random screen edges."""
+        for _ in range(4):
+            side = random.choice(("top", "left", "right"))
+            if side == "top":
+                x = random.uniform(20, SCREEN_WIDTH - 20)
+                y = -20
+                vx = random.uniform(-80, 80)
+                vy = random.uniform(120, 220)
+            elif side == "left":
+                x = -20
+                y = random.uniform(20, SCREEN_HEIGHT // 2)
+                vx = random.uniform(120, 220)
+                vy = random.uniform(40, 140)
+            else:
+                x = SCREEN_WIDTH + 20
+                y = random.uniform(20, SCREEN_HEIGHT // 2)
+                vx = random.uniform(-220, -120)
+                vy = random.uniform(40, 140)
+            e = Enemy(x, y, enemy_type="small")
+            e.vx = vx
+            e.vy = vy
+            small_enemies.append(e)
+
+    def fire_player_bullets():
+        """Create bullets based on whether player has a special ship."""
+        bx = player.x + player.width // 2 - 2
+        by = player.y - 10
+        new_bullets = []
+        if player.special_ship:
+            # Three-bullet spread: center, slight left, slight right
+            new_bullets.append(Bullet(bx, by))
+            new_bullets.append(Bullet(bx - 14, by + 4))
+            new_bullets.append(Bullet(bx + 14, by + 4))
+        else:
+            new_bullets.append(Bullet(bx, by))
+        return new_bullets
 
     def reset_game():
         nonlocal player, bullets, enemy_speed, enemy_direction, score, auto_fire_timer
-        player = Player()
+        nonlocal enemy_bullets, small_enemies, small_enemies_defeated, small_enemy_spawn_timer
+        player = Player(special_ship=has_special_ship(level))
         bullets = []
+        enemy_bullets = []
+        small_enemies = []
+        small_enemies_defeated = 0
+        small_enemy_spawn_timer = 0.0
         enemy_speed = 2
         enemy_direction = 1
         score = 0
@@ -207,10 +264,18 @@ def main():
 
             elif game_state in (STATE_GAME_OVER, STATE_WIN):
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                    if game_state == STATE_WIN:
+                        level += 1
+                    else:
+                        level = 1
                     reset_game()
                     set_game_state(STATE_PLAYING)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if restart_rect.collidepoint(event.pos):
+                        if game_state == STATE_WIN:
+                            level += 1
+                        else:
+                            level = 1
                         reset_game()
                         set_game_state(STATE_PLAYING)
                     elif endscreen_options_rect.collidepoint(event.pos):
@@ -222,9 +287,8 @@ def main():
             elif game_state == STATE_PLAYING:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                     if not options["mouse_ctrl"]:
-                        bullets.append(
-                            Bullet(player.x + player.width // 2 - 2, player.y - 10)
-                        )
+                        new_bullets = fire_player_bullets()
+                        bullets.extend(new_bullets)
                         audio.play_shoot()
 
             elif game_state == STATE_OPTIONS:
@@ -279,10 +343,23 @@ def main():
             update_screen_asteroids(win_asteroids, delta_time)
 
         if game_state == STATE_PLAYING:
+            # --- HUD ---
             score_text = score_font.render(f"SCORE: {score}", True, WHITE)
             sc_rect = score_text.get_rect(topleft=score_pos)
             screen.blit(score_text, sc_rect)
 
+            level_text = hud_font.render(f"LVL {level}", True, WHITE)
+            screen.blit(level_text, (SCREEN_WIDTH - level_text.get_width() - 15, 15))
+
+            # Show small enemy progress for L4+
+            if level >= 4:
+                target = level
+                progress_text = hud_font.render(
+                    f"Scouts: {small_enemies_defeated}/{target}", True, (200, 200, 255)
+                )
+                screen.blit(progress_text, (SCREEN_WIDTH - progress_text.get_width() - 15, 48))
+
+            # --- Player movement ---
             if options["mouse_ctrl"]:
                 # Mouse control: player follows cursor X, clamped to screen
                 mx, my = pygame.mouse.get_pos()
@@ -292,13 +369,12 @@ def main():
                     player.x = target_x
                     player.rect.x = player.x
 
-                # Auto-fire at 1-second intervals
+                # Auto-fire
                 auto_fire_timer += delta_time
                 if auto_fire_timer >= AUTO_FIRE_INTERVAL:
                     auto_fire_timer -= AUTO_FIRE_INTERVAL
-                    bullets.append(
-                        Bullet(player.x + player.width // 2 - 2, player.y - 10)
-                    )
+                    new_bullets = fire_player_bullets()
+                    bullets.extend(new_bullets)
                     audio.play_shoot()
             else:
                 keys = pygame.key.get_pressed()
@@ -313,51 +389,160 @@ def main():
                 if bullet.rect.y < 0:
                     bullets.remove(bullet)
 
-            # 3. Update Enemies
-            move_down = False
-            for enemy in enemies:
-                enemy.rect.x += enemy_speed * enemy_direction
-                if enemy.rect.right >= SCREEN_WIDTH or enemy.rect.left <= 0:
-                    move_down = True
+            # 2b. Update Enemy Bullets
+            for eb in enemy_bullets[:]:
+                eb.move()
+                if eb.rect.y > SCREEN_HEIGHT:
+                    enemy_bullets.remove(eb)
+                elif eb.rect.colliderect(player.rect):
+                    # Player hit by enemy bullet -> game over
+                    enemy_bullets.remove(eb)
+                    set_game_state(STATE_GAME_OVER)
+                    game_over_asteroids = [make_game_over_asteroid() for _ in range(14)]
+                    screen_asteroid_spawn_time = 0.0
+                    audio.play_game_over()
+                    break
 
-            if move_down:
-                enemy_direction *= -1
+            # 3. Update Enemies (grid movement)
+            if game_state == STATE_PLAYING:
+                move_down = False
                 for enemy in enemies:
                     enemy.rect.x += enemy_speed * enemy_direction
-                    enemy.rect.y += enemy_drop
-                    if game_state == STATE_PLAYING and enemy.rect.bottom >= player.rect.top:
+                    if enemy.rect.right >= SCREEN_WIDTH or enemy.rect.left <= 0:
+                        move_down = True
+
+                if move_down:
+                    enemy_direction *= -1
+                    for enemy in enemies:
+                        enemy.rect.x += enemy_speed * enemy_direction
+                        enemy.rect.y += enemy_drop
+                        if game_state == STATE_PLAYING and enemy.rect.bottom >= player.rect.top:
+                            set_game_state(STATE_GAME_OVER)
+                            game_over_asteroids = [make_game_over_asteroid() for _ in range(14)]
+                            screen_asteroid_spawn_time = 0.0
+                            audio.play_game_over()
+
+            # 3b. Enemy firing (L2+)
+            if game_state == STATE_PLAYING and level >= 2:
+                for enemy in enemies:
+                    enemy.fire_timer += delta_time
+                    fire_interval = 2.0 if enemy.enemy_type == "boss" else random.uniform(3.0, 6.0)
+                    if enemy.fire_timer >= fire_interval:
+                        enemy.fire_timer = 0.0
+                        cx = enemy.rect.centerx
+                        cy = enemy.rect.bottom
+                        if enemy.enemy_type == "boss":
+                            # Boss fires 3 bullets in a spread
+                            enemy_bullets.append(EnemyBullet(cx - 12, cy))
+                            enemy_bullets.append(EnemyBullet(cx - 2, cy))
+                            enemy_bullets.append(EnemyBullet(cx + 8, cy))
+                        else:
+                            enemy_bullets.append(EnemyBullet(cx - 2, cy))
+
+            # 3c. Small enemies (L4+)
+            if game_state == STATE_PLAYING and level >= 4:
+                # Count normal enemies (non-small)
+                normal_count = len(enemies)
+                if normal_count < 4 and len(small_enemies) < 8:
+                    small_enemy_spawn_timer += delta_time
+                    if small_enemy_spawn_timer >= 2.0:
+                        small_enemy_spawn_timer = 0.0
+                        spawn_small_enemy_wave()
+
+                # Update small enemy positions
+                for se in small_enemies[:]:
+                    se.rect.x += se.vx * delta_time
+                    se.rect.y += se.vy * delta_time
+
+                    # Bounce off screen edges (keep them in play)
+                    if se.rect.left < 0:
+                        se.rect.left = 0
+                        se.vx = abs(se.vx)
+                    elif se.rect.right > SCREEN_WIDTH:
+                        se.rect.right = SCREEN_WIDTH
+                        se.vx = -abs(se.vx)
+                    if se.rect.top < 0:
+                        se.rect.top = 0
+                        se.vy = abs(se.vy)
+                    elif se.rect.bottom > SCREEN_HEIGHT - 60:
+                        se.rect.bottom = SCREEN_HEIGHT - 60
+                        se.vy = -abs(se.vy)
+
+                    # Fire when directly above player (within 20px)
+                    if abs(se.rect.centerx - player.rect.centerx) < 20:
+                        se.fire_timer += delta_time
+                        if se.fire_timer >= 1.5:
+                            se.fire_timer = 0.0
+                            enemy_bullets.append(EnemyBullet(se.rect.centerx - 2, se.rect.bottom))
+
+                    # Collision with player -> game over
+                    if se.rect.colliderect(player.rect):
                         set_game_state(STATE_GAME_OVER)
                         game_over_asteroids = [make_game_over_asteroid() for _ in range(14)]
                         screen_asteroid_spawn_time = 0.0
                         audio.play_game_over()
-
-            # 4. Collisions
-            for bullet in bullets[:]:
-                for enemy in enemies[:]:
-                    if bullet.rect.colliderect(enemy.rect):
-                        audio.play_boom()
-                        if bullet in bullets:
-                            bullets.remove(bullet)
-                        enemies.remove(enemy)
-                        score += 1
                         break
 
-            if game_state == STATE_PLAYING and not enemies:
-                set_game_state(STATE_WIN)
-                win_asteroids = [make_win_asteroid() for _ in range(18)]
-                screen_asteroid_spawn_time = 0.0
-                audio.play_win()
+            # 4. Collisions — player bullets vs grid enemies
+            if game_state == STATE_PLAYING:
+                for bullet in bullets[:]:
+                    hit = False
+                    for enemy in enemies[:]:
+                        if bullet.rect.colliderect(enemy.rect):
+                            audio.play_boom()
+                            if bullet in bullets:
+                                bullets.remove(bullet)
+                            if enemy.hit():
+                                enemies.remove(enemy)
+                            score += 1
+                            hit = True
+                            break
+                    if not hit:
+                        # Check small enemies
+                        for se in small_enemies[:]:
+                            if bullet.rect.colliderect(se.rect):
+                                audio.play_boom()
+                                if bullet in bullets:
+                                    bullets.remove(bullet)
+                                if se.hit():
+                                    small_enemies.remove(se)
+                                    small_enemies_defeated += 1
+                                score += 1
+                                break
 
-            # 5. Drawing
-            player.draw(screen)
-            for bullet in bullets:
-                bullet.draw(screen)
-            for enemy in enemies:
-                enemy.draw(screen)
+            # 5. Win conditions
+            if game_state == STATE_PLAYING:
+                if level < 4:
+                    # L1-L3: defeat all grid enemies
+                    if not enemies:
+                        set_game_state(STATE_WIN)
+                        win_asteroids = [make_win_asteroid() for _ in range(18)]
+                        screen_asteroid_spawn_time = 0.0
+                        audio.play_win()
+                else:
+                    # L4+: defeat `level` small enemies to win
+                    if small_enemies_defeated >= level:
+                        set_game_state(STATE_WIN)
+                        win_asteroids = [make_win_asteroid() for _ in range(18)]
+                        screen_asteroid_spawn_time = 0.0
+                        audio.play_win()
+
+            # 6. Drawing
+            if game_state == STATE_PLAYING:
+                player.draw(screen)
+                for bullet in bullets:
+                    bullet.draw(screen)
+                for enemy in enemies:
+                    enemy.draw(screen)
+                for se in small_enemies:
+                    se.draw(screen)
+                for eb in enemy_bullets:
+                    eb.draw(screen)
 
         elif game_state == STATE_INIT:
             draw_init_screen(
-                screen, title_font, button_font, mouse_pos, start_rect, options_rect, quit_rect, asteroids
+                screen, title_font, button_font, mouse_pos, start_rect, options_rect, quit_rect, asteroids,
+                level=level,
             )
 
         elif game_state == STATE_WARP:
@@ -371,6 +556,7 @@ def main():
                 quit_rect,
                 asteroids,
                 warp_elapsed / WARP_DURATION,
+                level=level,
             )
 
         elif game_state == STATE_OPTIONS:
@@ -382,6 +568,7 @@ def main():
                 back_rect,
                 toggle_rects,
                 options,
+                level=level,
             )
 
         elif game_state == STATE_GAME_OVER:
@@ -395,6 +582,7 @@ def main():
                 endscreen_options_rect,
                 quit_rect,
                 game_over_asteroids,
+                level=level,
             )
 
         elif game_state == STATE_WIN:
@@ -408,6 +596,7 @@ def main():
                 endscreen_options_rect,
                 quit_rect,
                 win_asteroids,
+                level=level,
             )
 
         pygame.display.flip()

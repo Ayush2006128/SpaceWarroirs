@@ -46,6 +46,7 @@ def draw_init_screen(
     quit_rect,
     asteroids,
     warp_progress=0,
+    level=1,
 ):
     center_x = surface.get_width() // 2
     for asteroid in asteroids:
@@ -72,6 +73,8 @@ def draw_init_screen(
         )
 
     draw_centered_text(surface, "SPACE WARRIORS", title_font, WHITE, center_x, 170)
+    if level > 1:
+        draw_centered_text(surface, f"LEVEL {level}", button_font, YELLOW, center_x, 210)
     if warp_progress:
         draw_centered_text(surface, "WARP ENGAGED", button_font, YELLOW, center_x, 240)
         return
@@ -84,13 +87,14 @@ def draw_init_screen(
 
 
 def draw_game_over_screen(
-    surface, title_font, button_font, mouse_pos, score, restart_rect, options_rect, quit_rect, asteroids
+    surface, title_font, button_font, mouse_pos, score, restart_rect, options_rect, quit_rect, asteroids, level=1
 ):
     center_x = surface.get_width() // 2
     draw_screen_asteroids(surface, asteroids)
     draw_centered_text(surface, "GAME OVER", title_font, RED, center_x, 170)
+    draw_centered_text(surface, f"LEVEL {level}", button_font, WHITE, center_x, 210)
     draw_centered_text(
-        surface, f"Final Score: {score}", button_font, WHITE, center_x, 240
+        surface, f"Final Score: {score}", button_font, WHITE, center_x, 260
     )
     draw_button(surface, restart_rect, "Restart", button_font, mouse_pos)
     draw_button(surface, options_rect, "Options", button_font, mouse_pos)
@@ -98,15 +102,16 @@ def draw_game_over_screen(
 
 
 def draw_win_screen(
-    surface, title_font, button_font, mouse_pos, score, restart_rect, options_rect, quit_rect, asteroids
+    surface, title_font, button_font, mouse_pos, score, restart_rect, options_rect, quit_rect, asteroids, level=1
 ):
     center_x = surface.get_width() // 2
     draw_screen_asteroids(surface, asteroids)
     draw_centered_text(surface, "YOU WIN!", title_font, GREEN, center_x, 170)
+    draw_centered_text(surface, f"NEXT: LEVEL {level + 1}", button_font, YELLOW, center_x, 210)
     draw_centered_text(
-        surface, f"Final Score: {score}", button_font, WHITE, center_x, 240
+        surface, f"Final Score: {score}", button_font, WHITE, center_x, 260
     )
-    draw_button(surface, restart_rect, "Play Again", button_font, mouse_pos)
+    draw_button(surface, restart_rect, "Next Level", button_font, mouse_pos)
     draw_button(surface, options_rect, "Options", button_font, mouse_pos)
     draw_button(surface, quit_rect, "Quit", button_font, mouse_pos, variant="danger")
 
@@ -119,9 +124,11 @@ def draw_options_screen(
     back_rect,
     toggle_rects,
     options,
+    level=1,
 ):
     center_x = surface.get_width() // 2
     draw_centered_text(surface, "OPTIONS", title_font, YELLOW, center_x, 100)
+    draw_centered_text(surface, f"LEVEL {level}", button_font, WHITE, center_x, 140)
 
     labels = ["Music", "Sound FX", "Mouse Ctrl"]
     keys = ["music", "sfx", "mouse_ctrl"]
