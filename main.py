@@ -1,6 +1,7 @@
 import math
 import pygame
 import random
+import os
 import sys
 from pathlib import Path
 from game.constants import (
@@ -15,6 +16,14 @@ from game.sound.music import MusicManager
 from game.game_models import Player, Enemy, Bullet
 from game.ui import draw_game_over_screen, draw_init_screen, draw_win_screen
 
+def resource_path(relative_path: str) -> str:
+    """Get the absolute path to a resource, works for development and for PyInstaller."""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 
 # ==========================================
 # MAIN GAME LOOP
@@ -23,6 +32,9 @@ def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Space Warriors")
+    icon = pygame.image.load(resource_path("assets/images/SpaceWarriors.png"))
+    icon = pygame.transform.scale(icon, (32, 32))
+    pygame.display.set_icon(icon)
     clock = pygame.time.Clock()
     font_dir = Path(__file__).parent / "assets" / "fonts"
     display_font_path = (
