@@ -1,7 +1,7 @@
 import pygame
 
 from game.constants import GREEN, RED, WHITE, YELLOW
-from game.ui.buttons import draw_button
+from game.ui.buttons import draw_button, draw_toggle
 
 
 def draw_centered_text(surface, text, font, color, center_x, y):
@@ -42,6 +42,7 @@ def draw_init_screen(
     button_font,
     mouse_pos,
     start_rect,
+    options_rect,
     quit_rect,
     asteroids,
     warp_progress=0,
@@ -78,6 +79,7 @@ def draw_init_screen(
         surface, "Press Enter or click Start", button_font, YELLOW, center_x, 240
     )
     draw_button(surface, start_rect, "Start Game", button_font, mouse_pos)
+    draw_button(surface, options_rect, "Options", button_font, mouse_pos)
     draw_button(surface, quit_rect, "Quit", button_font, mouse_pos, variant="danger")
 
 
@@ -105,3 +107,30 @@ def draw_win_screen(
     )
     draw_button(surface, restart_rect, "Play Again", button_font, mouse_pos)
     draw_button(surface, quit_rect, "Quit", button_font, mouse_pos, variant="danger")
+
+
+def draw_options_screen(
+    surface,
+    title_font,
+    button_font,
+    mouse_pos,
+    back_rect,
+    toggle_rects,
+    options,
+):
+    center_x = surface.get_width() // 2
+    draw_centered_text(surface, "OPTIONS", title_font, YELLOW, center_x, 100)
+
+    labels = ["Music", "Sound FX", "Mouse Ctrl"]
+    keys = ["music", "sfx", "mouse_ctrl"]
+    for i, (label, key) in enumerate(zip(labels, keys)):
+        draw_toggle(
+            surface,
+            toggle_rects[i],
+            label,
+            options[key],
+            button_font,
+            mouse_pos,
+        )
+
+    draw_button(surface, back_rect, "Back", button_font, mouse_pos)

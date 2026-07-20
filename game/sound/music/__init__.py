@@ -29,6 +29,7 @@ class MusicManager:
 
 		pygame.mixer.music.set_endevent(self._track_end_event)
 		pygame.mixer.music.set_volume(volume)
+		self._muted = False
 
 	def play_for_state(self, state: str) -> None:
 		if state == self._current_state:
@@ -59,6 +60,16 @@ class MusicManager:
 		self._current_state = None
 		self._current_playing_track_index = None
 
+	def set_muted(self, muted: bool) -> None:
+		self._muted = muted
+		if muted:
+			pygame.mixer.music.stop()
+		else:
+			state = self._current_state
+			self._current_state = None
+			if state:
+				self.play_for_state(state)
+
 	def _start_random_playing_track(self) -> None:
 		available_tracks = self._available_playing_tracks()
 		if not available_tracks:
@@ -85,9 +96,11 @@ class MusicManager:
 		self._load_and_play(available_tracks[self._current_playing_track_index], loops=0)
 
 	def _load_and_play(self, track_path: Path, loops: int) -> None:
+		if self._muted:
+			return
 		if not track_path.exists():
 			return
-		pygame.mixer.music.load(track_path.as_posix())
+		pygame.mixer.music.load(str(track_path))
 		pygame.mixer.music.play(loops=loops)
 
 	def _available_playing_tracks(self) -> list[Path]:

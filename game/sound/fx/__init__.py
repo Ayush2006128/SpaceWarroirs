@@ -8,6 +8,7 @@ class SoundEffects:
         # Initialize mixer for mono (1 channel), 16-bit signed audio
         pygame.mixer.init(frequency=sample_rate, size=-16, channels=1, buffer=512)
         self.channels = pygame.mixer.get_init()[2]
+        self._muted = False
 
         # Pre-generate sounds so they are ready in memory
         self.sfx_shoot = self._generate_pew()
@@ -69,17 +70,30 @@ class SoundEffects:
         envelope = np.linspace(1, 0, len(t)) ** 1.5
         return self._make_sound((tone + noise) * envelope * 22000)
 
+    def set_muted(self, muted: bool):
+        self._muted = muted
+
     def play_shoot(self):
+        if self._muted:
+            return
         self.sfx_shoot.play()
 
     def play_boom(self):
+        if self._muted:
+            return
         self.sfx_boom.play()
 
     def play_start(self):
+        if self._muted:
+            return
         self.sfx_start.play()
 
     def play_win(self):
+        if self._muted:
+            return
         self.sfx_win.play()
 
     def play_game_over(self):
+        if self._muted:
+            return
         self.sfx_game_over.play()

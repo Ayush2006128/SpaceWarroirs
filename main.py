@@ -1,7 +1,6 @@
 import math
 import pygame
 import random
-import os
 import sys
 from pathlib import Path
 from game.constants import (
@@ -14,15 +13,13 @@ from game.constants import (
 from game.sound.fx import SoundEffects
 from game.sound.music import MusicManager
 from game.game_models import Player, Enemy, Bullet
-from game.ui import draw_game_over_screen, draw_init_screen, draw_win_screen
+from game.ui import draw_game_over_screen, draw_init_screen, draw_win_screen, draw_options_screen
 
-def resource_path(relative_path: str) -> str:
-    """Get the absolute path to a resource, works for development and for PyInstaller."""
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+# Base directory: bundled (PyInstaller) or the project root (where main.py lives).
+try:
+    _BASE_DIR = Path(sys._MEIPASS)
+except AttributeError:
+    _BASE_DIR = Path(__file__).resolve().parent
 
 
 # ==========================================
@@ -32,11 +29,11 @@ def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Space Warriors")
-    icon = pygame.image.load(resource_path("assets/images/SpaceWarriors.png"))
+    icon = pygame.image.load(str(_BASE_DIR / "assets" / "images" / "SpaceWarriors.png"))
     icon = pygame.transform.scale(icon, (32, 32))
     pygame.display.set_icon(icon)
     clock = pygame.time.Clock()
-    font_dir = Path(__file__).parent / "assets" / "fonts"
+    font_dir = _BASE_DIR / "assets" / "fonts"
     display_font_path = (
         font_dir / "Bitcount_Grid_Double" / "static" / "BitcountGridDouble_Roman-Bold.ttf"
     )
@@ -54,6 +51,7 @@ def main():
     STATE_PLAYING = "playing"
     STATE_GAME_OVER = "game_over"
     STATE_WIN = "win"
+    STATE_OPTIONS = "options"
     game_state = STATE_INIT
 
     # Initialize game SFX and background music systems.
@@ -75,6 +73,11 @@ def main():
     screen_asteroid_spawn_time = 0.0
     warp_elapsed = 0.0
     WARP_DURATION = 0.75
+    auto_fire_timer = 0.0
+    AUTO_FIRE_INTERVAL = 1.0
+
+    # Options state
+    options = {"music": True, "sfx": True, "mouse_ctrl": False}
 
     def make_asteroid():
         size = random.randint(4, 10)
@@ -134,12 +137,13 @@ def main():
                 enemies.append(Enemy(x, y))
 
     def reset_game():
-        nonlocal player, bullets, enemy_speed, enemy_direction, score
+        nonlocal player, bullets, enemy_speed, enemy_direction, score, auto_fire_timer
         player = Player()
         bullets = []
         enemy_speed = 2
         enemy_direction = 1
         score = 0
+        auto_fire_timer = 0.0
         game_over_asteroids.clear()
         win_asteroids.clear()
         spawn_enemies()
@@ -151,9 +155,19 @@ def main():
         music.play_for_state(game_state)
 
     # Shared menu buttons
-    start_rect = pygame.Rect(SCREEN_WIDTH // 2 - 130, 295, 260, 65)
+    start_rect = pygame.Rect(SCREEN_WIDTH // 2 - 130, 270, 260, 65)
+    options_rect = pygame.Rect(SCREEN_WIDTH // 2 - 130, 350, 260, 65)
     restart_rect = pygame.Rect(SCREEN_WIDTH // 2 - 120, 300, 240, 55)
-    quit_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 380, 200, 55)
+    quit_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 430, 200, 55)
+
+    # Options screen layout
+    toggle_w, toggle_h = 350, 55
+    toggle_x = SCREEN_WIDTH // 2 - toggle_w // 2
+    toggle_rects = [
+        pygame.Rect(toggle_x, 180 + i * 80, toggle_w, toggle_h)
+        for i in range(3)
+    ]
+    back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 440, 200, 55)
 
     running = True
 
@@ -181,6 +195,8 @@ def main():
                         reset_game()
                         warp_elapsed = 0.0
                         set_game_state(STATE_WARP)
+                    elif options_rect.collidepoint(event.pos):
+                        set_game_state(STATE_OPTIONS)
                     elif quit_rect.collidepoint(event.pos):
                         running = False
 
@@ -197,10 +213,25 @@ def main():
 
             elif game_state == STATE_PLAYING:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                    bullets.append(
-                        Bullet(player.x + player.width // 2 - 2, player.y - 10)
-                    )
-                    audio.play_shoot()
+                    if not options["mouse_ctrl"]:
+                        bullets.append(
+                            Bullet(player.x + player.width // 2 - 2, player.y - 10)
+                        )
+                        audio.play_shoot()
+
+            elif game_state == STATE_OPTIONS:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    set_game_state(STATE_INIT)
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if back_rect.collidepoint(event.pos):
+                        set_game_state(STATE_INIT)
+                    for i, key in enumerate(("music", "sfx", "mouse_ctrl")):
+                        if toggle_rects[i].collidepoint(event.pos):
+                            options[key] = not options[key]
+                            if key == "music":
+                                music.set_muted(not options["music"])
+                            elif key == "sfx":
+                                audio.set_muted(not options["sfx"])
 
         if game_state in (STATE_INIT, STATE_WARP):
             if game_state == STATE_INIT:
@@ -244,11 +275,29 @@ def main():
             sc_rect = score_text.get_rect(topleft=score_pos)
             screen.blit(score_text, sc_rect)
 
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_LEFT] or keys[pygame.K_l] or keys[pygame.K_d]:
-                player.move(-1)
-            if keys[pygame.K_RIGHT] or keys[pygame.K_h] or keys[pygame.K_a]:
-                player.move(1)
+            if options["mouse_ctrl"]:
+                # Mouse control: player follows cursor X, clamped to screen
+                mx, my = pygame.mouse.get_pos()
+                # Only follow if mouse is inside the window
+                if pygame.mouse.get_focused():
+                    target_x = max(0, min(SCREEN_WIDTH - player.width, mx - player.width // 2))
+                    player.x = target_x
+                    player.rect.x = player.x
+
+                # Auto-fire at 1-second intervals
+                auto_fire_timer += delta_time
+                if auto_fire_timer >= AUTO_FIRE_INTERVAL:
+                    auto_fire_timer -= AUTO_FIRE_INTERVAL
+                    bullets.append(
+                        Bullet(player.x + player.width // 2 - 2, player.y - 10)
+                    )
+                    audio.play_shoot()
+            else:
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                    player.move(-1)
+                if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                    player.move(1)
 
             # 2. Update Bullets
             for bullet in bullets[:]:
@@ -300,7 +349,7 @@ def main():
 
         elif game_state == STATE_INIT:
             draw_init_screen(
-                screen, title_font, button_font, mouse_pos, start_rect, quit_rect, asteroids
+                screen, title_font, button_font, mouse_pos, start_rect, options_rect, quit_rect, asteroids
             )
 
         elif game_state == STATE_WARP:
@@ -310,9 +359,21 @@ def main():
                 button_font,
                 mouse_pos,
                 start_rect,
+                options_rect,
                 quit_rect,
                 asteroids,
                 warp_elapsed / WARP_DURATION,
+            )
+
+        elif game_state == STATE_OPTIONS:
+            draw_options_screen(
+                screen,
+                title_font,
+                button_font,
+                mouse_pos,
+                back_rect,
+                toggle_rects,
+                options,
             )
 
         elif game_state == STATE_GAME_OVER:
