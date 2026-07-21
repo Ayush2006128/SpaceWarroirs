@@ -266,16 +266,12 @@ def main():
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
                     if game_state == STATE_WIN:
                         level += 1
-                    else:
-                        level = 1
                     reset_game()
                     set_game_state(STATE_PLAYING)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if restart_rect.collidepoint(event.pos):
                         if game_state == STATE_WIN:
                             level += 1
-                        else:
-                            level = 1
                         reset_game()
                         set_game_state(STATE_PLAYING)
                     elif endscreen_options_rect.collidepoint(event.pos):
@@ -403,6 +399,17 @@ def main():
                     audio.play_game_over()
                     break
 
+            # 2c. Bullet vs Bullet collision
+            if game_state == STATE_PLAYING:
+                for b in bullets[:]:
+                    for eb in enemy_bullets[:]:
+                        if b.rect.colliderect(eb.rect):
+                            if b in bullets:
+                                bullets.remove(b)
+                            if eb in enemy_bullets:
+                                enemy_bullets.remove(eb)
+                            break
+
             # 3. Update Enemies (grid movement)
             if game_state == STATE_PLAYING:
                 move_down = False
@@ -426,18 +433,25 @@ def main():
             if game_state == STATE_PLAYING and level >= 2:
                 for enemy in enemies:
                     enemy.fire_timer += delta_time
-                    fire_interval = 2.0 if enemy.enemy_type == "boss" else random.uniform(3.0, 6.0)
-                    if enemy.fire_timer >= fire_interval:
-                        enemy.fire_timer = 0.0
-                        cx = enemy.rect.centerx
-                        cy = enemy.rect.bottom
-                        if enemy.enemy_type == "boss":
-                            # Boss fires 3 bullets in a spread
-                            enemy_bullets.append(EnemyBullet(cx - 12, cy))
-                            enemy_bullets.append(EnemyBullet(cx - 2, cy))
-                            enemy_bullets.append(EnemyBullet(cx + 8, cy))
-                        else:
-                            enemy_bullets.append(EnemyBullet(cx - 2, cy))
+                    can_fire = True
+                    for other in enemies:
+                        if other != enemy and other.rect.bottom > enemy.rect.bottom:
+                            if not (other.rect.left >= enemy.rect.right or other.rect.right <= enemy.rect.left):
+                                can_fire = False
+                                break
+                    if can_fire:
+                        fire_interval = 2.0 if enemy.enemy_type == "boss" else random.uniform(3.0, 6.0)
+                        if enemy.fire_timer >= fire_interval:
+                            enemy.fire_timer = 0.0
+                            cx = enemy.rect.centerx
+                            cy = enemy.rect.bottom
+                            if enemy.enemy_type == "boss":
+                                # Boss fires 3 bullets in a spread
+                                enemy_bullets.append(EnemyBullet(cx - 12, cy))
+                                enemy_bullets.append(EnemyBullet(cx - 2, cy))
+                                enemy_bullets.append(EnemyBullet(cx + 8, cy))
+                            else:
+                                enemy_bullets.append(EnemyBullet(cx - 2, cy))
 
             # 3c. Small enemies (L4+)
             if game_state == STATE_PLAYING and level >= 4:
