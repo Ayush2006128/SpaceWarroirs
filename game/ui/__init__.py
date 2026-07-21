@@ -47,6 +47,7 @@ def draw_init_screen(
     asteroids,
     warp_progress=0,
     level=1,
+    high_score=0,
 ):
     center_x = surface.get_width() // 2
     for asteroid in asteroids:
@@ -72,14 +73,18 @@ def draw_init_screen(
             ],
         )
 
-    draw_centered_text(surface, "SPACE WARRIORS", title_font, WHITE, center_x, 170)
+    draw_centered_text(surface, "SPACE WARRIORS", title_font, WHITE, center_x, 150)
+    if high_score > 0:
+        draw_centered_text(surface, f"HIGH SCORE: {high_score}", button_font, (100, 255, 100), center_x, 185)
+    
     if level > 1:
-        draw_centered_text(surface, f"LEVEL {level}", button_font, YELLOW, center_x, 210)
+        draw_centered_text(surface, f"LEVEL {level}", button_font, YELLOW, center_x, 215)
+
     if warp_progress:
-        draw_centered_text(surface, "WARP ENGAGED", button_font, YELLOW, center_x, 240)
+        draw_centered_text(surface, "WARP ENGAGED", button_font, YELLOW, center_x, 245)
         return
     draw_centered_text(
-        surface, "Press Enter or click Start", button_font, YELLOW, center_x, 240
+        surface, "Press Enter or click Start", button_font, YELLOW, center_x, 245
     )
     draw_button(surface, start_rect, "Start Game", button_font, mouse_pos)
     draw_button(surface, options_rect, "Options", button_font, mouse_pos)
@@ -125,10 +130,13 @@ def draw_options_screen(
     toggle_rects,
     options,
     level=1,
+    minus_rect=None,
+    plus_rect=None,
+    reset_rect=None,
+    highest_level=1
 ):
     center_x = surface.get_width() // 2
-    draw_centered_text(surface, "OPTIONS", title_font, YELLOW, center_x, 100)
-    draw_centered_text(surface, f"LEVEL {level}", button_font, WHITE, center_x, 140)
+    draw_centered_text(surface, "OPTIONS", title_font, YELLOW, center_x, 80)
 
     labels = ["Music", "Sound FX", "Mouse Ctrl"]
     keys = ["music", "sfx", "mouse_ctrl"]
@@ -141,5 +149,12 @@ def draw_options_screen(
             button_font,
             mouse_pos,
         )
+
+    if minus_rect and plus_rect and reset_rect:
+        draw_centered_text(surface, "Start Level", button_font, WHITE, center_x, minus_rect.top - 20)
+        draw_button(surface, minus_rect, "-", button_font, mouse_pos)
+        draw_centered_text(surface, str(level), button_font, YELLOW, center_x, minus_rect.centery)
+        draw_button(surface, plus_rect, "+", button_font, mouse_pos)
+        draw_button(surface, reset_rect, "Reset Defaults", button_font, mouse_pos, variant="danger")
 
     draw_button(surface, back_rect, "Back", button_font, mouse_pos)

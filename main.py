@@ -14,6 +14,7 @@ from game.sound.fx import SoundEffects
 from game.sound.music import MusicManager
 from game.game_models import Player, Enemy, Bullet, EnemyBullet, HealthBooster
 from game.ui import draw_game_over_screen, draw_init_screen, draw_win_screen, draw_options_screen
+from game.database import init_db, get_state, save_high_score, save_highest_level, save_settings, reset_to_default
 
 # Base directory: bundled (PyInstaller) or the project root (where main.py lives).
 try:
@@ -46,6 +47,12 @@ def main():
     button_font = pygame.font.Font(interface_font_path, 42)
     hud_font = pygame.font.Font(interface_font_path, 28)
 
+    init_db()
+    state = get_state()
+    high_score = state["high_score"]
+    highest_level = state["highest_level"]
+    options = {"music": state["music"], "sfx": state["sfx"], "mouse_ctrl": state["mouse_ctrl"]}
+    
     # States
     STATE_INIT = "init"
     STATE_WARP = "warp"
@@ -57,7 +64,9 @@ def main():
 
     # Initialize game SFX and background music systems.
     audio = SoundEffects()
+    audio.set_muted(not options["sfx"])
     music = MusicManager()
+    music.set_muted(not options["music"])
     music.play_for_state(game_state)
 
     player = None
@@ -69,7 +78,7 @@ def main():
     enemy_drop = 30
     enemy_direction = 1
     score = 0
-    level = 1
+    level = highest_level
     small_enemies_defeated = 0
     health_boosters = []
     booster_timer = 0.0
@@ -86,7 +95,6 @@ def main():
     small_enemy_spawn_timer = 0.0
 
     # Options state
-    options = {"music": True, "sfx": True, "mouse_ctrl": False}
     pre_options_state = STATE_INIT  # tracks which screen opened options
 
     def make_asteroid():
@@ -229,13 +237,18 @@ def main():
     quit_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 450, 200, 55)
 
     # Options screen layout
-    toggle_w, toggle_h = 350, 55
+    toggle_w, toggle_h = 350, 45
     toggle_x = SCREEN_WIDTH // 2 - toggle_w // 2
     toggle_rects = [
-        pygame.Rect(toggle_x, 180 + i * 80, toggle_w, toggle_h)
+        pygame.Rect(toggle_x, 140 + i * 60, toggle_w, toggle_h)
         for i in range(3)
     ]
-    back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 440, 200, 55)
+    level_changer_y = 330
+    minus_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, level_changer_y, 45, 45)
+    plus_rect = pygame.Rect(SCREEN_WIDTH // 2 + 55, level_changer_y, 45, 45)
+    
+    reset_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 400, 200, 45)
+    back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 470, 200, 45)
 
     running = True
 
@@ -273,12 +286,18 @@ def main():
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
                     if game_state == STATE_WIN:
                         level += 1
+                        if level > highest_level:
+                            highest_level = level
+                            save_highest_level(highest_level)
                     reset_game()
                     set_game_state(STATE_PLAYING)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if restart_rect.collidepoint(event.pos):
                         if game_state == STATE_WIN:
                             level += 1
+                            if level > highest_level:
+                                highest_level = level
+                                save_highest_level(highest_level)
                         reset_game()
                         set_game_state(STATE_PLAYING)
                     elif endscreen_options_rect.collidepoint(event.pos):
@@ -296,10 +315,24 @@ def main():
 
             elif game_state == STATE_OPTIONS:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    save_settings(options["music"], options["sfx"], options["mouse_ctrl"])
                     set_game_state(pre_options_state)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if back_rect.collidepoint(event.pos):
+                        save_settings(options["music"], options["sfx"], options["mouse_ctrl"])
                         set_game_state(pre_options_state)
+                    elif minus_rect.collidepoint(event.pos):
+                        if level > 1:
+                            level -= 1
+                    elif plus_rect.collidepoint(event.pos):
+                        if level < highest_level:
+                            level += 1
+                    elif reset_rect.collidepoint(event.pos):
+                        reset_to_default()
+                        state = get_state()
+                        options = {"music": state["music"], "sfx": state["sfx"], "mouse_ctrl": state["mouse_ctrl"]}
+                        music.set_muted(not options["music"])
+                        audio.set_muted(not options["sfx"])
                     for i, key in enumerate(("music", "sfx", "mouse_ctrl")):
                         if toggle_rects[i].collidepoint(event.pos):
                             options[key] = not options[key]
@@ -551,6 +584,9 @@ def main():
                             if enemy.hit():
                                 enemies.remove(enemy)
                             score += 1
+                            if score > high_score:
+                                high_score = score
+                                save_high_score(high_score)
                             hit = True
                             break
                     if not hit:
@@ -564,6 +600,9 @@ def main():
                                     small_enemies.remove(se)
                                     small_enemies_defeated += 1
                                 score += 1
+                                if score > high_score:
+                                    high_score = score
+                                    save_high_score(high_score)
                                 break
 
             # 5. Win conditions
@@ -600,7 +639,7 @@ def main():
         elif game_state == STATE_INIT:
             draw_init_screen(
                 screen, title_font, button_font, mouse_pos, start_rect, options_rect, quit_rect, asteroids,
-                level=level,
+                level=level, high_score=high_score
             )
 
         elif game_state == STATE_WARP:
@@ -615,6 +654,7 @@ def main():
                 asteroids,
                 warp_elapsed / WARP_DURATION,
                 level=level,
+                high_score=high_score
             )
 
         elif game_state == STATE_OPTIONS:
@@ -627,6 +667,10 @@ def main():
                 toggle_rects,
                 options,
                 level=level,
+                minus_rect=minus_rect,
+                plus_rect=plus_rect,
+                reset_rect=reset_rect,
+                highest_level=highest_level
             )
 
         elif game_state == STATE_GAME_OVER:
