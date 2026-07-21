@@ -12,7 +12,7 @@ from game.constants import (
 )
 from game.sound.fx import SoundEffects
 from game.sound.music import MusicManager
-from game.game_models import Player, Enemy, Bullet, EnemyBullet
+from game.game_models import Player, Enemy, Bullet, EnemyBullet, HealthBooster
 from game.ui import draw_game_over_screen, draw_init_screen, draw_win_screen, draw_options_screen
 
 # Base directory: bundled (PyInstaller) or the project root (where main.py lives).
@@ -71,6 +71,9 @@ def main():
     score = 0
     level = 1
     small_enemies_defeated = 0
+    health_boosters = []
+    booster_timer = 0.0
+    booster_interval = random.randint(1, 5)
     asteroids = []
     game_over_asteroids = []
     win_asteroids = []
@@ -192,6 +195,7 @@ def main():
     def reset_game():
         nonlocal player, bullets, enemy_speed, enemy_direction, score, auto_fire_timer
         nonlocal enemy_bullets, small_enemies, small_enemies_defeated, small_enemy_spawn_timer
+        nonlocal health_boosters, booster_timer, booster_interval
         player = Player(special_ship=has_special_ship(level))
         bullets = []
         enemy_bullets = []
@@ -202,6 +206,9 @@ def main():
         enemy_direction = 1
         score = 0
         auto_fire_timer = 0.0
+        health_boosters = []
+        booster_timer = 0.0
+        booster_interval = random.randint(1, 5)
         game_over_asteroids.clear()
         win_asteroids.clear()
         spawn_enemies()
@@ -354,6 +361,20 @@ def main():
                     f"Scouts: {small_enemies_defeated}/{target}", True, (200, 200, 255)
                 )
                 screen.blit(progress_text, (SCREEN_WIDTH - progress_text.get_width() - 15, 48))
+                
+            # Health Bar
+            health_bar_width = 150
+            health_bar_height = 20
+            health_bar_x = SCREEN_WIDTH // 2 - health_bar_width // 2
+            health_bar_y = 15
+            pygame.draw.rect(screen, (100, 100, 100), (health_bar_x, health_bar_y, health_bar_width, health_bar_height))
+            if player.health > 0:
+                health_ratio = player.health / player.max_health
+                pygame.draw.rect(screen, (0, 255, 100), (health_bar_x, health_bar_y, int(health_bar_width * health_ratio), health_bar_height))
+            pygame.draw.rect(screen, WHITE, (health_bar_x, health_bar_y, health_bar_width, health_bar_height), 2)
+            
+            health_text = hud_font.render(f"HP: {player.health}/{player.max_health}", True, WHITE)
+            screen.blit(health_text, (health_bar_x + health_bar_width // 2 - health_text.get_width() // 2, health_bar_y + 25))
 
             # --- Player movement ---
             if options["mouse_ctrl"]:
@@ -391,13 +412,34 @@ def main():
                 if eb.rect.y > SCREEN_HEIGHT:
                     enemy_bullets.remove(eb)
                 elif eb.rect.colliderect(player.rect):
-                    # Player hit by enemy bullet -> game over
+                    # Player hit by enemy bullet -> lose 1 health
                     enemy_bullets.remove(eb)
-                    set_game_state(STATE_GAME_OVER)
-                    game_over_asteroids = [make_game_over_asteroid() for _ in range(14)]
-                    screen_asteroid_spawn_time = 0.0
-                    audio.play_game_over()
-                    break
+                    player.health -= 1
+                    # Play a generic hit sound; we can reuse boom or game_over partially
+                    audio.play_boom() 
+                    if player.health <= 0:
+                        set_game_state(STATE_GAME_OVER)
+                        game_over_asteroids = [make_game_over_asteroid() for _ in range(14)]
+                        screen_asteroid_spawn_time = 0.0
+                        audio.play_game_over()
+                        break
+                        
+            # 2c. Booster Update
+            if game_state == STATE_PLAYING:
+                booster_timer += delta_time
+                if booster_timer >= booster_interval:
+                    booster_timer = 0.0
+                    if player.health < 5:
+                        health_boosters.append(HealthBooster(booster_interval))
+                    booster_interval = random.randint(1, 5)
+                
+                for hb in health_boosters[:]:
+                    hb.move()
+                    if hb.rect.y > SCREEN_HEIGHT:
+                        health_boosters.remove(hb)
+                    elif hb.rect.colliderect(player.rect):
+                        player.health = min(player.max_health, player.health + hb.xp)
+                        health_boosters.remove(hb)
 
             # 2c. Bullet vs Bullet collision
             if game_state == STATE_PLAYING:
@@ -552,6 +594,8 @@ def main():
                     se.draw(screen)
                 for eb in enemy_bullets:
                     eb.draw(screen)
+                for hb in health_boosters:
+                    hb.draw(screen)
 
         elif game_state == STATE_INIT:
             draw_init_screen(

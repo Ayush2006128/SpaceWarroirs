@@ -44,6 +44,8 @@ class Player:
         self.y = SCREEN_HEIGHT - 50
         self.speed = 6
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        self.max_health = 10
+        self.health = self.max_health
 
     def move(self, dx):
         self.x += dx * self.speed
@@ -141,3 +143,27 @@ class Enemy:
     def hit(self):
         self.health -= 1
         return self.health <= 0
+
+
+class HealthBooster:
+    def __init__(self, xp):
+        self.width = 24
+        self.height = 24
+        self.x = random.uniform(0, SCREEN_WIDTH - self.width)
+        self.y = -self.height
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        self.speed = 4
+        self.xp = xp
+        self.color = (0, 255, 100)
+        self.font = pygame.font.SysFont(None, 18)
+
+    def move(self):
+        self.y += self.speed
+        self.rect.y = self.y
+
+    def draw(self, surface):
+        pygame.draw.rect(surface, self.color, self.rect)
+        pygame.draw.rect(surface, WHITE, (self.rect.x + 10, self.rect.y + 4, 4, 16))
+        pygame.draw.rect(surface, WHITE, (self.rect.x + 4, self.rect.y + 10, 16, 4))
+        text = self.font.render(f"+{self.xp}", True, WHITE)
+        surface.blit(text, (self.rect.x, self.rect.y + 26))
