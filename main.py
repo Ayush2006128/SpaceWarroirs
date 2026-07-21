@@ -45,6 +45,7 @@ def main():
     score_font = pygame.font.Font(display_font_path, 50)
     title_font = pygame.font.Font(display_font_path, 70)
     button_font = pygame.font.Font(interface_font_path, 42)
+    options_font = pygame.font.Font(interface_font_path, 32)
     hud_font = pygame.font.Font(interface_font_path, 28)
 
     init_db()
@@ -240,15 +241,15 @@ def main():
     toggle_w, toggle_h = 350, 45
     toggle_x = SCREEN_WIDTH // 2 - toggle_w // 2
     toggle_rects = [
-        pygame.Rect(toggle_x, 140 + i * 60, toggle_w, toggle_h)
+        pygame.Rect(toggle_x, 120 + i * 55, toggle_w, toggle_h)
         for i in range(3)
     ]
-    level_changer_y = 330
+    level_changer_y = 320
     minus_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, level_changer_y, 45, 45)
     plus_rect = pygame.Rect(SCREEN_WIDTH // 2 + 55, level_changer_y, 45, 45)
     
-    reset_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 400, 200, 45)
-    back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 470, 200, 45)
+    reset_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 385, 200, 45)
+    back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, 450, 200, 45)
 
     running = True
 
@@ -638,7 +639,7 @@ def main():
 
         elif game_state == STATE_INIT:
             draw_init_screen(
-                screen, title_font, button_font, mouse_pos, start_rect, options_rect, quit_rect, asteroids,
+                screen, title_font, button_font, options_font, mouse_pos, start_rect, options_rect, quit_rect, asteroids,
                 level=level, high_score=high_score
             )
 
@@ -647,6 +648,7 @@ def main():
                 screen,
                 title_font,
                 button_font,
+                options_font,
                 mouse_pos,
                 start_rect,
                 options_rect,
@@ -661,7 +663,7 @@ def main():
             draw_options_screen(
                 screen,
                 title_font,
-                button_font,
+                options_font,
                 mouse_pos,
                 back_rect,
                 toggle_rects,
@@ -678,6 +680,7 @@ def main():
                 screen,
                 title_font,
                 button_font,
+                options_font,
                 mouse_pos,
                 score,
                 restart_rect,
@@ -692,6 +695,7 @@ def main():
                 screen,
                 title_font,
                 button_font,
+                options_font,
                 mouse_pos,
                 score,
                 restart_rect,
